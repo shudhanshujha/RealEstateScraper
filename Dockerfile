@@ -6,8 +6,9 @@ WORKDIR /app
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install playwright
 
-# Install system dependencies for headless browsers using Playwright
+# Install system dependencies for headless browsers using Playwright python module
 RUN playwright install-deps chromium
 
 # Install Scrapling browser binaries
