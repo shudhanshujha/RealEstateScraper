@@ -1,4 +1,5 @@
 {
+  "name": "real-estate-scraper",
   "version": 2,
   "builds": [
     {
