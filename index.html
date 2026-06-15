@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real Estate Agent Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-6 text-center text-blue-600">Agent Scraper</h1>
+        
+        <div class="mb-4">
+            <label for="location" class="block text-sm font-medium text-gray-700 mb-2">Enter Location (e.g., New York, NY)</label>
+            <input type="text" id="location" placeholder="New York, NY" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="mb-6">
+            <label for="maxPages" class="block text-sm font-medium text-gray-700 mb-2">Max Pages to Scrape (Higher = More Data, Longer Time)</label>
+            <input type="number" id="maxPages" value="3" min="1" max="25" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Approx 15 agents per page.</p>
+        </div>
+        
+        <button id="scrapeBtn" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200">Start Scraping</button>
+        
+        <div id="statusContainer" class="mt-6 hidden">
+            <p class="text-sm font-medium text-gray-600">Status: <span id="statusText" class="font-bold">Idle</span></p>
+            <div id="loader" class="mt-2 w-full bg-gray-200 rounded-full h-2.5 hidden">
+                <div class="bg-blue-600 h-2.5 rounded-full animate-pulse" style="width: 100%"></div>
+            </div>
+            <a id="downloadLink" href="#" class="mt-4 block text-center bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition duration-200 hidden">Download CSV</a>
+        </div>
+    </div>
+
+    <script>
+        const scrapeBtn = document.getElementById('scrapeBtn');
+        const locationInput = document.getElementById('location');
+        const statusContainer = document.getElementById('statusContainer');
+        const statusText = document.getElementById('statusText');
+        const loader = document.getElementById('loader');
+        const downloadLink = document.getElementById('downloadLink');
+
+        let checkInterval;
+
+        scrapeBtn.addEventListener('click', async () => {
+            const location = locationInput.value.trim();
+            if (!location) {
+                alert('Please enter a location');
+                return;
+            }
+
+            // Reset UI
+            statusContainer.classList.remove('hidden');
+            statusText.innerText = 'Initializing...';
+            statusText.className = 'font-bold text-orange-500';
+            loader.classList.remove('hidden');
+            downloadLink.classList.add('hidden');
+            scrapeBtn.disabled = true;
+            scrapeBtn.classList.add('opacity-50');
+
+            const maxPages = document.getElementById('maxPages').value || 3;
+
+            try {
+                const response = await fetch(`/scrape/${encodeURIComponent(location)}?max_pages=${maxPages}`, { method: 'POST' });
+                const data = await response.json();
+                
+                statusText.innerText = 'Scraping in progress...';
+                
+                // Start polling for status
+                checkInterval = setInterval(() => checkStatus(location), 3000);
+            } catch (error) {
+                statusText.innerText = 'Error starting scrape';
+                statusText.className = 'font-bold text-red-500';
+                loader.classList.add('hidden');
+                scrapeBtn.disabled = false;
+                scrapeBtn.classList.remove('opacity-50');
+            }
+        });
+
+        async function checkStatus(location) {
+            try {
+                const response = await fetch(`/status/${encodeURIComponent(location)}`);
+                const data = await response.json();
+                
+                if (typeof data === 'string') {
+                    statusText.innerText = data + '...';
+                } else if (data.status === 'Completed') {
+                    clearInterval(checkInterval);
+                    statusText.innerText = 'Completed!';
+                    statusText.className = 'font-bold text-green-600';
+                    loader.classList.add('hidden');
+                    downloadLink.href = `/download/${encodeURIComponent(location)}`;
+                    downloadLink.classList.remove('hidden');
+                    scrapeBtn.disabled = false;
+                    scrapeBtn.classList.remove('opacity-50');
+                } else if (data.status === 'Failed') {
+                    clearInterval(checkInterval);
+                    statusText.innerText = 'Failed: ' + (data.error || 'Unknown error');
+                    statusText.className = 'font-bold text-red-500';
+                    loader.classList.add('hidden');
+                    scrapeBtn.disabled = false;
+                    scrapeBtn.classList.remove('opacity-50');
+                }
+            } catch (error) {
+                console.error('Status check failed', error);
+            }
+        }
+    </script>
+</body>
+</html>
